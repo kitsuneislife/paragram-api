@@ -22,6 +22,20 @@ func TestLoadDefaultsAddr(t *testing.T) {
 	}
 }
 
+func TestLoadCORSOrigins(t *testing.T) {
+	c, err := Load(env(map[string]string{
+		"DATABASE_URL":          "postgres://x",
+		"REDIS_URL":             "redis://x",
+		"PARAGRAM_CORS_ORIGINS": " https://a.example, ,https://b.example ",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.CORSOrigins) != 2 || c.CORSOrigins[0] != "https://a.example" || c.CORSOrigins[1] != "https://b.example" {
+		t.Errorf("CORSOrigins = %q", c.CORSOrigins)
+	}
+}
+
 func TestLoadReportsAllMissing(t *testing.T) {
 	_, err := Load(env(nil))
 	if err == nil {

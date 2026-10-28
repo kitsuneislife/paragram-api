@@ -4,12 +4,14 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type Config struct {
 	Addr        string // HTTP listen address
 	DatabaseURL string // Postgres connection string
 	RedisURL    string // Redis connection string
+	CORSOrigins []string
 }
 
 // Load reads settings through getenv (os.Getenv in production) and fails on
@@ -22,6 +24,11 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if c.Addr == "" {
 		c.Addr = ":8080"
+	}
+	for _, o := range strings.Split(getenv("PARAGRAM_CORS_ORIGINS"), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			c.CORSOrigins = append(c.CORSOrigins, o)
+		}
 	}
 
 	var errs []error
