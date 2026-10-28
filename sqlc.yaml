@@ -1,0 +1,13 @@
+# Generates typed Go from SQL. Schema comes from the goose migrations.
+# shortcut: no queries exist yet, so `sqlc generate` fails until the first file lands in internal/db/queries (phase 1).
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/db/migrations
+    queries: internal/db/queries
+    gen:
+      go:
+        package: store
+        out: internal/db/store
+        sql_package: pgx/v5
+        emit_empty_slices: true
