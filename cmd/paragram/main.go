@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/kitsuneislife/paragram/internal/api"
 	"github.com/kitsuneislife/paragram/internal/config"
 	"github.com/kitsuneislife/paragram/internal/db"
@@ -55,7 +57,21 @@ func run(log *slog.Logger) error {
 		return db.Migrate(ctx, log, pool)
 	}
 
-	checks := []api.Check{{Name: "postgres", Ping: pool.Ping}}
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		return fmt.Errorf("redis: %w", err)
+	}
+	rdb := redis.NewClient(redisOpts)
+	defer rdb.Close()
+	pingRedis := func(ctx context.Context) error { return rdb.Ping(ctx).Err() }
+	if err := pingRedis(ctx); err != nil {
+		return fmt.Errorf("redis: ping: %w", err)
+	}
+
+	checks := []api.Check{
+		{Name: "postgres", Ping: pool.Ping},
+		{Name: "redis", Ping: pingRedis},
+	}
 	return serve(ctx, log, cfg.Addr, api.New(log, checks, cfg.CORSOrigins))
 }
 
