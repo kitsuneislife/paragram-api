@@ -1,4 +1,4 @@
-package db
+package db_test
 
 import (
 	"context"
@@ -6,36 +6,18 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/kitsuneislife/paragram-api/internal/db"
+	"github.com/kitsuneislife/paragram-api/internal/db/dbtest"
 )
 
-// TestMigrate runs against a real Postgres. Skipped when Docker is unavailable.
+// TestMigrate runs against a real Postgres (see dbtest for how one is found).
 func TestMigrate(t *testing.T) {
-	testcontainers.SkipIfProviderIsNotHealthy(t)
+	pool := dbtest.New(t) // already migrated once
 	ctx := context.Background()
 
-	ctr, err := postgres.Run(ctx, "postgres:17-alpine", postgres.BasicWaitStrategies())
-	testcontainers.CleanupContainer(t, ctr)
-	if err != nil {
+	// A second run must be a no-op.
+	if err := db.Migrate(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), pool); err != nil {
 		t.Fatal(err)
-	}
-	url, err := ctr.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	pool, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	for range 2 { // second run must be a no-op
-		if err := Migrate(ctx, log, pool); err != nil {
-			t.Fatal(err)
-		}
 	}
 
 	var n int
