@@ -63,10 +63,16 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /v1/me", s.authed(s.getMe))
 	mux.HandleFunc("PATCH /v1/me", s.authed(s.updateMe))
 	mux.HandleFunc("GET /v1/users/{id}", s.authed(s.getUser))
-	mux.HandleFunc("GET /v1/users/by-username/{username}", s.authed(s.getUserByUsername))
+	// Not under /v1/users/: "/v1/users/by-username/posts" would be ambiguous with /v1/users/{id}/posts.
+	mux.HandleFunc("GET /v1/usernames/{username}", s.authed(s.getUserByUsername))
 
 	mux.HandleFunc("POST /v1/media", s.authed(s.rateLimit("media", 60, time.Minute, s.createMedia)))
 	mux.HandleFunc("GET /v1/media/{id}", s.authed(s.getMedia))
+
+	mux.HandleFunc("POST /v1/posts", s.authed(s.rateLimit("posts", 30, time.Minute, s.createPost)))
+	mux.HandleFunc("GET /v1/posts/{id}", s.authed(s.getPost))
+	mux.HandleFunc("DELETE /v1/posts/{id}", s.authed(s.deletePost))
+	mux.HandleFunc("GET /v1/users/{id}/posts", s.authed(s.listUserPosts))
 
 	// shortcut: catch-all also answers wrong-method requests with 404 instead of 405, revisit if clients need 405.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

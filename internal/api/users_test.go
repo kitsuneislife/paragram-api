@@ -26,12 +26,12 @@ func TestProfile(t *testing.T) {
 	if seen.Bio != "hello" || seen.Email != "" {
 		t.Errorf("seen by bob = %+v", seen)
 	}
-	a.do(bob.AccessToken, "GET", "/v1/users/by-username/ALICE", nil, http.StatusOK, &seen)
+	a.do(bob.AccessToken, "GET", "/v1/usernames/ALICE", nil, http.StatusOK, &seen)
 	if seen.ID != alice.User.ID {
 		t.Errorf("by username = %+v", seen)
 	}
 
-	a.do(bob.AccessToken, "GET", "/v1/users/by-username/nobody", nil, http.StatusNotFound, nil)
+	a.do(bob.AccessToken, "GET", "/v1/usernames/nobody", nil, http.StatusNotFound, nil)
 	a.do(bob.AccessToken, "GET", "/v1/users/not-a-uuid", nil, http.StatusNotFound, nil)
 	a.do(bob.AccessToken, "GET", "/v1/users/00000000-0000-7000-8000-000000000000", nil, http.StatusNotFound, nil)
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -20,6 +21,8 @@ const (
 	maxEmail       = 254
 	minPassword    = 8
 	maxPassword    = 128
+	maxCaption     = 2200
+	maxPostMedia   = 10
 )
 
 var usernameRe = regexp.MustCompile(`^[a-z0-9._]{1,30}$`)
@@ -47,6 +50,20 @@ func validEmail(s string) bool {
 func validWebsite(s string) bool {
 	u, err := url.Parse(s)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+// parseIDs parses UUIDs, failing on any malformed or repeated one.
+func parseIDs(ss []string) ([]uuid.UUID, bool) {
+	ids := make([]uuid.UUID, len(ss))
+	seen := make(map[uuid.UUID]bool, len(ss))
+	for i, s := range ss {
+		id, err := uuid.Parse(s)
+		if err != nil || seen[id] {
+			return nil, false
+		}
+		ids[i], seen[id] = id, true
+	}
+	return ids, true
 }
 
 // uniqueViolation returns the constraint name when err is a unique violation.

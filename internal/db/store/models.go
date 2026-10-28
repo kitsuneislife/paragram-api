@@ -22,6 +22,23 @@ type Media struct {
 	UpdatedAt time.Time
 }
 
+type Post struct {
+	ID             uuid.UUID
+	AuthorID       uuid.UUID
+	Caption        string
+	LikesCount     int32
+	CommentsCount  int32
+	IdempotencyKey uuid.NullUUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type PostMedium struct {
+	PostID   uuid.UUID
+	MediaID  uuid.UUID
+	Position int16
+}
+
 type Session struct {
 	ID          uuid.UUID
 	UserID      uuid.UUID

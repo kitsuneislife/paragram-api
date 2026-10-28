@@ -103,6 +103,12 @@ func pngImage(t *testing.T) []byte {
 // When out is non-nil the response body is decoded into it.
 func (a *testAPI) do(token, method, path string, body any, want int, out any) *http.Response {
 	a.t.Helper()
+	return a.doKey(token, "", method, path, body, want, out)
+}
+
+// doKey is do with an Idempotency-Key header when key is not empty.
+func (a *testAPI) doKey(token, key, method, path string, body any, want int, out any) *http.Response {
+	a.t.Helper()
 	var rd io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -120,6 +126,9 @@ func (a *testAPI) do(token, method, path string, body any, want int, out any) *h
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if key != "" {
+		req.Header.Set("Idempotency-Key", key)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

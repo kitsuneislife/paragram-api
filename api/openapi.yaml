@@ -192,7 +192,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
 
-  /v1/users/by-username/{username}:
+  /v1/usernames/{username}:
     get:
       summary: User by username
       operationId: getUserByUsername
@@ -206,6 +206,89 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /v1/users/{id}/posts:
+    get:
+      summary: A user's posts, newest first
+      description: Others see only ready posts; the author also sees those still processing or failed.
+      operationId: listUserPosts
+      tags: [posts]
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PostPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+
+  /v1/posts:
+    post:
+      summary: Create a post
+      description: >
+        Attaches 1 to 10 uploaded media (purpose post) in carousel order and queues their
+        processing. The post is visible to others once every media is ready.
+      operationId: createPost
+      tags: [posts]
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Idempotency-Key"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [media_ids]
+              properties:
+                caption: { type: string, maxLength: 2200 }
+                media_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  uniqueItems: true
+                  items: { type: string, format: uuid }
+      responses:
+        "201":
+          description: The post (or the original one, when the Idempotency-Key was used before)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Post" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /v1/posts/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: A post
+      operationId: getPost
+      tags: [posts]
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: The post
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Post" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem", description: Unknown, or not ready and not the caller's }
+    delete:
+      summary: Delete own post
+      operationId: deletePost
+      tags: [posts]
+      security: [{ bearer: [] }]
+      responses:
+        "204": { description: Deleted }
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
 
@@ -274,6 +357,22 @@ components:
     X-Request-Id:
       description: Request ID, echoed from the client or generated. Appears in logs.
       schema: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" }
+
+  parameters:
+    limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    cursor:
+      name: cursor
+      in: query
+      description: next_cursor from the previous page.
+      schema: { type: string }
+    Idempotency-Key:
+      name: Idempotency-Key
+      in: header
+      description: Retrying with the same key returns the original result instead of creating again.
+      schema: { type: string, format: uuid }
 
   responses:
     Problem:
@@ -347,6 +446,30 @@ components:
             - $ref: "#/components/schemas/MediaURLs"
             - type: "null"
         email: { type: string, format: email, description: Only present for the caller themself }
+
+    Post:
+      type: object
+      required: [id, author, media, ready, caption, likes_count, comments_count, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        author: { $ref: "#/components/schemas/User" }
+        media:
+          type: array
+          items: { $ref: "#/components/schemas/Media" }
+        ready: { type: boolean, description: False until every media is processed. Only the author sees such posts. }
+        caption: { type: string }
+        likes_count: { type: integer }
+        comments_count: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    PostPage:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Post" }
+        next_cursor: { type: [string, "null"], description: Null at the end of the list. }
 
     MediaURLs:
       type: object
