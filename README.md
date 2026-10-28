@@ -63,6 +63,7 @@ compose.yaml          dependências locais
 |---|---|---|---|
 | `DATABASE_URL` | sim | | Connection string do Postgres |
 | `REDIS_URL` | sim | | Connection string do Redis |
+| `PARAGRAM_JWT_SECRET` | sim | | Chave HMAC dos access tokens, mínimo 32 bytes |
 | `PARAGRAM_ADDR` | não | `:8080` | Endereço HTTP |
 | `PARAGRAM_CORS_ORIGINS` | não | vazio | Origens de navegador permitidas, separadas por vírgula |
 

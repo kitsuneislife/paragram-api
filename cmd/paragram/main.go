@@ -72,7 +72,13 @@ func run(log *slog.Logger) error {
 		{Name: "postgres", Ping: pool.Ping},
 		{Name: "redis", Ping: pingRedis},
 	}
-	return serve(ctx, log, cfg.Addr, api.New(log, checks, cfg.CORSOrigins))
+	return serve(ctx, log, cfg.Addr, api.New(api.Deps{
+		Log:         log,
+		Checks:      checks,
+		CORSOrigins: cfg.CORSOrigins,
+		Pool:        pool,
+		JWTSecret:   cfg.JWTSecret,
+	}))
 }
 
 // serve runs the server until ctx is cancelled, then drains in-flight requests.

@@ -38,7 +38,121 @@ paths:
         "503":
           $ref: "#/components/responses/Problem"
 
+  /v1/auth/register:
+    post:
+      summary: Create an account
+      description: Starts a session for the new user. Rate limited per IP.
+      operationId: register
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, password]
+              properties:
+                username: { type: string, pattern: "^[A-Za-z0-9._]{1,30}$", description: Stored lowercase }
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 8, maxLength: 128 }
+                display_name: { type: string, maxLength: 50 }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResult" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/login:
+    post:
+      summary: Log in
+      description: Starts a new session (one per device). Rate limited per IP.
+      operationId: login
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, password]
+              properties:
+                login: { type: string, description: Username or email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResult" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/refresh:
+    post:
+      summary: Rotate tokens
+      description: |
+        Returns a new token pair and invalidates the refresh token sent.
+        Sending an already used refresh token revokes the whole session.
+        Rate limited per IP.
+      operationId: refresh
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: New tokens
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tokens" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /v1/auth/logout:
+    post:
+      summary: Log out
+      description: Ends the session of the access token used. Other devices stay logged in.
+      operationId: logout
+      tags: [auth]
+      security: [{ bearer: [] }]
+      responses:
+        "204": { description: Logged out }
+        "401": { $ref: "#/components/responses/Problem" }
+
+  /v1/me:
+    get:
+      summary: Current user
+      operationId: getMe
+      tags: [users]
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: The caller, including private fields
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Problem" }
+
 components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token from login, register or refresh. Expires in 15 minutes.
+
   headers:
     X-Request-Id:
       description: Request ID, echoed from the client or generated. Appears in logs.
@@ -71,3 +185,44 @@ components:
         title: { type: string, examples: [Not Found] }
         status: { type: integer, examples: [404] }
         detail: { type: string }
+        errors:
+          type: array
+          description: Present on 422, one entry per invalid field.
+          items:
+            type: object
+            required: [field, code]
+            properties:
+              field: { type: string, examples: [username] }
+              code: { type: string, examples: [taken, invalid, required, too_long, too_short] }
+
+    Tokens:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, description: Access token lifetime in seconds, examples: [900] }
+
+    AuthResult:
+      allOf:
+        - $ref: "#/components/schemas/Tokens"
+        - type: object
+          required: [user]
+          properties:
+            user: { $ref: "#/components/schemas/User" }
+
+    User:
+      type: object
+      required: [id, username, display_name, bio, website, posts_count, followers_count, following_count, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        display_name: { type: string }
+        bio: { type: string }
+        website: { type: string }
+        posts_count: { type: integer }
+        followers_count: { type: integer }
+        following_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        email: { type: string, format: email, description: Only present for the caller themself }

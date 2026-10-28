@@ -33,7 +33,7 @@ func decodeProblem(t *testing.T, rec *httptest.ResponseRecorder) Problem {
 }
 
 func TestHealthz(t *testing.T) {
-	rec := serve(New(quiet, nil, nil), httptest.NewRequest("GET", "/healthz", nil))
+	rec := serve(New(Deps{Log: quiet}), httptest.NewRequest("GET", "/healthz", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -43,12 +43,12 @@ func TestReadyz(t *testing.T) {
 	ok := Check{"db", func(context.Context) error { return nil }}
 	down := Check{"redis", func(context.Context) error { return errors.New("down") }}
 
-	rec := serve(New(quiet, []Check{ok}, nil), httptest.NewRequest("GET", "/readyz", nil))
+	rec := serve(New(Deps{Log: quiet, Checks: []Check{ok}}), httptest.NewRequest("GET", "/readyz", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("all up: status = %d", rec.Code)
 	}
 
-	rec = serve(New(quiet, []Check{ok, down}, nil), httptest.NewRequest("GET", "/readyz", nil))
+	rec = serve(New(Deps{Log: quiet, Checks: []Check{ok, down}}), httptest.NewRequest("GET", "/readyz", nil))
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("one down: status = %d", rec.Code)
 	}
@@ -58,7 +58,7 @@ func TestReadyz(t *testing.T) {
 }
 
 func TestUnknownRouteIsProblem(t *testing.T) {
-	rec := serve(New(quiet, nil, nil), httptest.NewRequest("GET", "/nope", nil))
+	rec := serve(New(Deps{Log: quiet}), httptest.NewRequest("GET", "/nope", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -68,7 +68,7 @@ func TestUnknownRouteIsProblem(t *testing.T) {
 }
 
 func TestRequestID(t *testing.T) {
-	h := New(quiet, nil, nil)
+	h := New(Deps{Log: quiet})
 
 	r := httptest.NewRequest("GET", "/healthz", nil)
 	r.Header.Set("X-Request-Id", "abc-123")
@@ -98,7 +98,7 @@ func TestRecoverHidesPanic(t *testing.T) {
 }
 
 func TestCORS(t *testing.T) {
-	h := New(quiet, nil, []string{"https://app.example"})
+	h := New(Deps{Log: quiet, CORSOrigins: []string{"https://app.example"}})
 
 	r := httptest.NewRequest("OPTIONS", "/healthz", nil)
 	r.Header.Set("Origin", "https://app.example")
