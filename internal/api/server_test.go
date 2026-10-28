@@ -97,6 +97,36 @@ func TestRecoverHidesPanic(t *testing.T) {
 	}
 }
 
+func TestETag(t *testing.T) {
+	h := New(Deps{Log: quiet})
+
+	rec := serve(h, httptest.NewRequest("GET", "/healthz", nil))
+	tag := rec.Header().Get("ETag")
+	if rec.Code != http.StatusOK || tag == "" || rec.Body.Len() == 0 {
+		t.Fatalf("first: status %d, etag %q, body %q", rec.Code, tag, rec.Body)
+	}
+
+	for _, inm := range []string{tag, `"other", W/` + tag, "*"} {
+		r := httptest.NewRequest("GET", "/healthz", nil)
+		r.Header.Set("If-None-Match", inm)
+		rec = serve(h, r)
+		if rec.Code != http.StatusNotModified || rec.Body.Len() != 0 || rec.Header().Get("ETag") != tag {
+			t.Errorf("If-None-Match %s: status %d, body %q", inm, rec.Code, rec.Body)
+		}
+	}
+
+	r := httptest.NewRequest("GET", "/healthz", nil)
+	r.Header.Set("If-None-Match", `"other"`)
+	if rec = serve(h, r); rec.Code != http.StatusOK {
+		t.Errorf("stale tag: status %d", rec.Code)
+	}
+
+	// Errors carry no ETag.
+	if rec = serve(h, httptest.NewRequest("GET", "/nope", nil)); rec.Header().Get("ETag") != "" {
+		t.Errorf("404 got ETag %q", rec.Header().Get("ETag"))
+	}
+}
+
 func TestCORS(t *testing.T) {
 	h := New(Deps{Log: quiet, CORSOrigins: []string{"https://app.example"}})
 

@@ -1,13 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"strings"
 	"time"
 )
 
@@ -122,6 +126,64 @@ func withCORS(origins []string, next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// etagWriter holds back the response so its ETag can be computed.
+type etagWriter struct {
+	http.ResponseWriter
+	status int
+	body   bytes.Buffer
+}
+
+func (w *etagWriter) WriteHeader(code int) {
+	if w.status == 0 {
+		w.status = code
+	}
+}
+
+func (w *etagWriter) Write(b []byte) (int, error) {
+	w.WriteHeader(http.StatusOK)
+	return w.body.Write(b)
+}
+
+// withETag tags successful GET responses with a hash of their body and
+// answers 304 when the client already has it.
+// shortcut: the handler still does all its work, store versions in the DB if reads get hot.
+func withETag(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			next.ServeHTTP(w, r)
+			return
+		}
+		ew := &etagWriter{ResponseWriter: w}
+		next.ServeHTTP(ew, r)
+		if ew.status == 0 {
+			ew.status = http.StatusOK
+		}
+		if ew.status == http.StatusOK {
+			sum := sha256.Sum256(ew.body.Bytes())
+			tag := `"` + hex.EncodeToString(sum[:16]) + `"`
+			w.Header().Set("ETag", tag)
+			if etagMatches(r.Header.Get("If-None-Match"), tag) {
+				w.Header().Del("Content-Type")
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
+		w.WriteHeader(ew.status)
+		_, _ = w.Write(ew.body.Bytes())
+	})
+}
+
+// etagMatches applies If-None-Match's weak comparison.
+func etagMatches(header, tag string) bool {
+	for _, t := range strings.Split(header, ",") {
+		t = strings.TrimPrefix(strings.TrimSpace(t), "W/")
+		if t == tag || t == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func withLimits(next http.Handler) http.Handler {

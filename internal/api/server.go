@@ -92,6 +92,7 @@ func New(d Deps) http.Handler {
 	})
 
 	var h http.Handler = mux
+	h = withETag(h)
 	h = withLimits(h)
 	h = withCORS(d.CORSOrigins, h)
 	h = withRecover(d.Log, h)
