@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 )
 
 //go:embed migrations/*.sql
@@ -54,6 +56,19 @@ func Migrate(ctx context.Context, log *slog.Logger, pool *pgxpool.Pool) error {
 	}
 	for _, r := range results {
 		log.Info("migration applied", "version", r.Source.Version, "file", r.Source.Path, "duration", r.Duration)
+	}
+
+	// River owns its job tables and versions them itself.
+	rm, err := rivermigrate.New(riverpgxv5.New(pool), nil)
+	if err != nil {
+		return fmt.Errorf("db: river migrate: %w", err)
+	}
+	res, err := rm.Migrate(ctx, rivermigrate.DirectionUp, nil)
+	if err != nil {
+		return fmt.Errorf("db: river migrate up: %w", err)
+	}
+	for _, v := range res.Versions {
+		log.Info("river migration applied", "version", v.Version, "duration", v.Duration)
 	}
 	return nil
 }

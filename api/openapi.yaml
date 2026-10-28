@@ -161,6 +161,11 @@ paths:
                 display_name: { type: string, maxLength: 50 }
                 bio: { type: string, maxLength: 150 }
                 website: { type: string, maxLength: 200, description: "http(s) URL or empty." }
+                avatar_media_id:
+                  type: string
+                  description: >
+                    ID of an uploaded media with purpose avatar. It becomes the avatar once
+                    processed; until then the old one stays. Empty string removes the avatar.
       responses:
         "200":
           description: Updated profile
@@ -203,6 +208,59 @@ paths:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+
+  /v1/media:
+    post:
+      summary: Start an upload
+      description: >
+        Creates a pending media and returns a presigned URL. PUT the file (JPEG, PNG or GIF,
+        up to 20 MiB) to it before it expires, then attach the media (PATCH /v1/me avatar_media_id).
+        Attaching queues processing; the media is usable once its status is ready.
+      operationId: createMedia
+      tags: [media]
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose]
+              properties:
+                purpose: { type: string, enum: [post, avatar] }
+      responses:
+        "201":
+          description: Pending media and where to upload it
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Media"
+                  - type: object
+                    required: [upload_url, upload_expires_at]
+                    properties:
+                      upload_url: { type: string, format: uri, description: "PUT the file here." }
+                      upload_expires_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /v1/media/{id}:
+    get:
+      summary: Own media
+      operationId: getMedia
+      tags: [media]
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Media and, once ready, its URLs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Media" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem", description: Unknown or not the caller's }
 
 components:
   securitySchemes:
@@ -273,7 +331,7 @@ components:
 
     User:
       type: object
-      required: [id, username, display_name, bio, website, posts_count, followers_count, following_count, created_at]
+      required: [id, username, display_name, bio, website, posts_count, followers_count, following_count, created_at, avatar]
       properties:
         id: { type: string, format: uuid }
         username: { type: string }
@@ -284,4 +342,30 @@ components:
         followers_count: { type: integer }
         following_count: { type: integer }
         created_at: { type: string, format: date-time }
+        avatar:
+          oneOf:
+            - $ref: "#/components/schemas/MediaURLs"
+            - type: "null"
         email: { type: string, format: email, description: Only present for the caller themself }
+
+    MediaURLs:
+      type: object
+      required: [thumb, medium, full]
+      description: JPEGs bounded to 320, 1080 and 2048 px on the long side (never upscaled).
+      properties:
+        thumb: { type: string, format: uri }
+        medium: { type: string, format: uri }
+        full: { type: string, format: uri }
+
+    Media:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [pending, processing, ready, failed]
+          description: pending until attached, then processing; failed if the file is not a supported image.
+        width: { type: integer, description: Of the full variant, once ready }
+        height: { type: integer }
+        urls: { $ref: "#/components/schemas/MediaURLs" }

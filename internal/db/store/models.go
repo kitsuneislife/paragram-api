@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Media struct {
+	ID        uuid.UUID
+	OwnerID   uuid.UUID
+	Purpose   string
+	Status    string
+	Width     pgtype.Int4
+	Height    pgtype.Int4
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type Session struct {
 	ID          uuid.UUID
 	UserID      uuid.UUID
@@ -33,4 +44,5 @@ type User struct {
 	FollowingCount int32
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	AvatarMediaID  uuid.NullUUID
 }

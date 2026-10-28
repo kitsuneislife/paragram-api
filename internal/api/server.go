@@ -8,10 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/riverqueue/river"
 
 	"github.com/kitsuneislife/paragram-api/internal/db/store"
+	"github.com/kitsuneislife/paragram-api/internal/storage"
 )
 
 // Check is a dependency probed by /readyz.
@@ -28,6 +31,8 @@ type Deps struct {
 	Pool        *pgxpool.Pool
 	Redis       *redis.Client
 	JWTSecret   []byte
+	Store       *storage.Store
+	Jobs        *river.Client[pgx.Tx] // inserts only; `paragram worker` runs them
 }
 
 type server struct {
@@ -59,6 +64,9 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("PATCH /v1/me", s.authed(s.updateMe))
 	mux.HandleFunc("GET /v1/users/{id}", s.authed(s.getUser))
 	mux.HandleFunc("GET /v1/users/by-username/{username}", s.authed(s.getUserByUsername))
+
+	mux.HandleFunc("POST /v1/media", s.authed(s.rateLimit("media", 60, time.Minute, s.createMedia)))
+	mux.HandleFunc("GET /v1/media/{id}", s.authed(s.getMedia))
 
 	// shortcut: catch-all also answers wrong-method requests with 404 instead of 405, revisit if clients need 405.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

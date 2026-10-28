@@ -50,8 +50,10 @@ func (s *server) startSession(ctx context.Context, q *store.Queries, userID uuid
 	return s.issue(userID, sid, refresh), nil
 }
 
-func (s *server) inTx(ctx context.Context, fn func(q *store.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+// inTx runs fn in a transaction. tx is there for River, which inserts jobs
+// in the same transaction as the write that needs them.
+func (s *server) inTx(ctx context.Context, fn func(tx pgx.Tx, q *store.Queries) error) error {
+	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error { return fn(tx, s.q.WithTx(tx)) })
 }
 
 func (s *server) register(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +84,7 @@ func (s *server) register(w http.ResponseWriter, r *http.Request) {
 
 	hash := auth.HashPassword(in.Password)
 	var out authJSON
-	err := s.inTx(r.Context(), func(q *store.Queries) error {
+	err := s.inTx(r.Context(), func(_ pgx.Tx, q *store.Queries) error {
 		u, err := q.CreateUser(r.Context(), store.CreateUserParams{
 			ID:           uuid.Must(uuid.NewV7()),
 			Username:     in.Username,
@@ -93,7 +95,7 @@ func (s *server) register(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		out.User = privateUser(u)
+		out.User = s.privateUser(u)
 		out.tokensJSON, err = s.startSession(r.Context(), q, u.ID)
 		return err
 	})
@@ -145,7 +147,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, s.Log, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, authJSON{tokensJSON: tokens, User: privateUser(u)})
+	writeJSON(w, http.StatusOK, authJSON{tokensJSON: tokens, User: s.privateUser(u)})
 }
 
 // errInvalidRefresh rolls back a refresh. A reused token is reported through
@@ -167,7 +169,7 @@ func (s *server) refresh(w http.ResponseWriter, r *http.Request) {
 
 	var out tokensJSON
 	reused := false
-	err = s.inTx(r.Context(), func(q *store.Queries) error {
+	err = s.inTx(r.Context(), func(_ pgx.Tx, q *store.Queries) error {
 		sess, err := q.GetSessionForUpdate(r.Context(), sid)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return errInvalidRefresh

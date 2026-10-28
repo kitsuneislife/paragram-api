@@ -37,6 +37,7 @@ Aplicar migrations e subir a API:
 ```bash
 go run ./cmd/paragram migrate
 go run ./cmd/paragram api
+go run ./cmd/paragram worker   # outro terminal: processa mídia
 ```
 
 Checar: `curl localhost:8080/readyz`.
@@ -60,8 +61,12 @@ Redis e S3 rodam em memória nos testes (miniredis, gofakes3).
 ## Estrutura
 
 ```
-cmd/paragram/         entrypoint: subcomandos api e migrate
+cmd/paragram/         entrypoint: subcomandos api, worker e migrate
 internal/api/         HTTP: rotas, middleware, formato de resposta e erro
+internal/auth/        hash de senha e tokens
+internal/jobs/        jobs em background (River): processamento de mídia
+internal/media/       redimensiona imagens
+internal/storage/     bucket S3-compatível
 internal/config/      configuração via variáveis de ambiente
 internal/db/          conexão Postgres e migrations
   migrations/         SQL do goose, embutido no binário

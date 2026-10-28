@@ -15,7 +15,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, username, email, password_hash, display_name)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at
+RETURNING id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at, avatar_media_id
 `
 
 type CreateUserParams struct {
@@ -48,12 +48,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.FollowingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarMediaID,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at FROM users WHERE id = $1
+SELECT id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at, avatar_media_id FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -72,12 +73,13 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.FollowingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarMediaID,
 	)
 	return i, err
 }
 
 const getUserByLogin = `-- name: GetUserByLogin :one
-SELECT id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at FROM users WHERE username = lower($1::text) OR email = lower($1::text)
+SELECT id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at, avatar_media_id FROM users WHERE username = lower($1::text) OR email = lower($1::text)
 `
 
 // login is a username or an email; both are stored lowercase.
@@ -97,12 +99,13 @@ func (q *Queries) GetUserByLogin(ctx context.Context, login string) (User, error
 		&i.FollowingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarMediaID,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at FROM users WHERE username = lower($1::text)
+SELECT id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at, avatar_media_id FROM users WHERE username = lower($1::text)
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -121,6 +124,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.FollowingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarMediaID,
 	)
 	return i, err
 }
@@ -133,7 +137,7 @@ UPDATE users SET
     website      = coalesce($4, website),
     updated_at   = now()
 WHERE id = $5
-RETURNING id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at
+RETURNING id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at, avatar_media_id
 `
 
 type UpdateUserParams struct {
@@ -167,6 +171,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.FollowingCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarMediaID,
 	)
 	return i, err
 }

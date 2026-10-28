@@ -15,20 +15,21 @@ import (
 )
 
 type userJSON struct {
-	ID             string    `json:"id"`
-	Username       string    `json:"username"`
-	DisplayName    string    `json:"display_name"`
-	Bio            string    `json:"bio"`
-	Website        string    `json:"website"`
-	PostsCount     int32     `json:"posts_count"`
-	FollowersCount int32     `json:"followers_count"`
-	FollowingCount int32     `json:"following_count"`
-	CreatedAt      time.Time `json:"created_at"`
-	Email          string    `json:"email,omitempty"` // only shown to the user themself
+	ID             string     `json:"id"`
+	Username       string     `json:"username"`
+	DisplayName    string     `json:"display_name"`
+	Bio            string     `json:"bio"`
+	Website        string     `json:"website"`
+	PostsCount     int32      `json:"posts_count"`
+	FollowersCount int32      `json:"followers_count"`
+	FollowingCount int32      `json:"following_count"`
+	CreatedAt      time.Time  `json:"created_at"`
+	Avatar         *mediaURLs `json:"avatar"`
+	Email          string     `json:"email,omitempty"` // only shown to the user themself
 }
 
-func publicUser(u store.User) userJSON {
-	return userJSON{
+func (s *server) publicUser(u store.User) userJSON {
+	j := userJSON{
 		ID:             u.ID.String(),
 		Username:       u.Username,
 		DisplayName:    u.DisplayName,
@@ -39,10 +40,14 @@ func publicUser(u store.User) userJSON {
 		FollowingCount: u.FollowingCount,
 		CreatedAt:      u.CreatedAt.UTC(),
 	}
+	if u.AvatarMediaID.Valid {
+		j.Avatar = s.urls(u.AvatarMediaID.UUID)
+	}
+	return j
 }
 
-func privateUser(u store.User) userJSON {
-	j := publicUser(u)
+func (s *server) privateUser(u store.User) userJSON {
+	j := s.publicUser(u)
 	j.Email = u.Email
 	return j
 }
@@ -53,7 +58,7 @@ func (s *server) getMe(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, s.Log, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, privateUser(u))
+	writeJSON(w, http.StatusOK, s.privateUser(u))
 }
 
 func (s *server) updateMe(w http.ResponseWriter, r *http.Request) {
@@ -62,12 +67,15 @@ func (s *server) updateMe(w http.ResponseWriter, r *http.Request) {
 		DisplayName *string `json:"display_name"`
 		Bio         *string `json:"bio"`
 		Website     *string `json:"website"`
+		// A pending avatar upload; it replaces the current one once processed. "" removes it.
+		AvatarMediaID *string `json:"avatar_media_id"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
 	var v fieldErrors
-	p := store.UpdateUserParams{ID: caller(r).UserID}
+	me := caller(r).UserID
+	p := store.UpdateUserParams{ID: me}
 	if in.Username != nil {
 		u := normalizeUsername(*in.Username)
 		v.check(usernameRe.MatchString(u), "username", "invalid")
@@ -89,21 +97,57 @@ func (s *server) updateMe(w http.ResponseWriter, r *http.Request) {
 		v.check(site == "" || validWebsite(site), "website", "invalid")
 		p.Website = pgtype.Text{String: site, Valid: true}
 	}
+	var avatar uuid.UUID // Nil with a non-nil AvatarMediaID means remove
+	if in.AvatarMediaID != nil && *in.AvatarMediaID != "" {
+		id, err := uuid.Parse(*in.AvatarMediaID)
+		v.check(err == nil, "avatar_media_id", "invalid")
+		avatar = id
+	}
 	if len(v) > 0 {
 		writeInvalid(w, v)
 		return
 	}
 
-	u, err := s.q.UpdateUser(r.Context(), p)
+	errAvatar := []FieldError{{Field: "avatar_media_id", Code: "invalid"}}
+	if avatar != uuid.Nil {
+		if err := s.checkUploads(r.Context(), []uuid.UUID{avatar}); errors.Is(err, errMediaInvalid) {
+			writeInvalid(w, errAvatar)
+			return
+		} else if err != nil {
+			writeInternal(w, r, s.Log, err)
+			return
+		}
+	}
+	var u store.User
+	err := s.inTx(r.Context(), func(tx pgx.Tx, q *store.Queries) error {
+		if in.AvatarMediaID != nil {
+			var err error
+			if avatar == uuid.Nil {
+				err = q.SetAvatar(r.Context(), store.SetAvatarParams{UserID: me})
+			} else {
+				err = s.attachMedia(r.Context(), tx, q, me, "avatar", []uuid.UUID{avatar})
+			}
+			if err != nil {
+				return err
+			}
+		}
+		var err error
+		u, err = q.UpdateUser(r.Context(), p)
+		return err
+	})
 	if c, ok := uniqueViolation(err); ok && c == "users_username_key" {
 		writeInvalid(w, []FieldError{{Field: "username", Code: "taken"}})
+		return
+	}
+	if errors.Is(err, errMediaInvalid) {
+		writeInvalid(w, errAvatar)
 		return
 	}
 	if err != nil {
 		writeInternal(w, r, s.Log, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, privateUser(u))
+	writeJSON(w, http.StatusOK, s.privateUser(u))
 }
 
 func (s *server) getUser(w http.ResponseWriter, r *http.Request) {
@@ -130,10 +174,10 @@ func (s *server) sendUser(w http.ResponseWriter, r *http.Request, get func(conte
 		return
 	}
 	if u.ID == caller(r).UserID {
-		writeJSON(w, http.StatusOK, privateUser(u))
+		writeJSON(w, http.StatusOK, s.privateUser(u))
 		return
 	}
-	writeJSON(w, http.StatusOK, publicUser(u))
+	writeJSON(w, http.StatusOK, s.publicUser(u))
 }
 
 // pathUUID parses a UUID path parameter. A malformed one cannot name any

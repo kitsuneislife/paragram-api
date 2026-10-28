@@ -1,5 +1,5 @@
-// Command paragram runs the API server (`paragram api`) or applies database
-// migrations (`paragram migrate`).
+// Command paragram runs the API server (`paragram api`), the background job
+// worker (`paragram worker`) or applies database migrations (`paragram migrate`).
 package main
 
 import (
@@ -13,11 +13,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/kitsuneislife/paragram-api/internal/api"
 	"github.com/kitsuneislife/paragram-api/internal/config"
 	"github.com/kitsuneislife/paragram-api/internal/db"
+	"github.com/kitsuneislife/paragram-api/internal/jobs"
+	"github.com/kitsuneislife/paragram-api/internal/storage"
 )
 
 func main() {
@@ -28,14 +31,14 @@ func main() {
 	}
 }
 
-const usage = "usage: paragram <api|migrate>"
+const usage = "usage: paragram <api|worker|migrate>"
 
 func run(log *slog.Logger) error {
 	if len(os.Args) != 2 {
 		return errors.New(usage)
 	}
 	cmd := os.Args[1]
-	if cmd != "api" && cmd != "migrate" {
+	if cmd != "api" && cmd != "worker" && cmd != "migrate" {
 		return errors.New(usage)
 	}
 
@@ -57,6 +60,18 @@ func run(log *slog.Logger) error {
 		return db.Migrate(ctx, log, pool)
 	}
 
+	st, err := storage.New(cfg.S3)
+	if err != nil {
+		return err
+	}
+	if cmd == "worker" {
+		return work(ctx, log, pool, st)
+	}
+	jc, err := jobs.NewClient(log, pool, nil)
+	if err != nil {
+		return err
+	}
+
 	redisOpts, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
 		return fmt.Errorf("redis: %w", err)
@@ -71,6 +86,7 @@ func run(log *slog.Logger) error {
 	checks := []api.Check{
 		{Name: "postgres", Ping: pool.Ping},
 		{Name: "redis", Ping: pingRedis},
+		{Name: "storage", Ping: st.Ping},
 	}
 	return serve(ctx, log, cfg.Addr, api.New(api.Deps{
 		Log:         log,
@@ -79,7 +95,26 @@ func run(log *slog.Logger) error {
 		Pool:        pool,
 		Redis:       rdb,
 		JWTSecret:   cfg.JWTSecret,
+		Store:       st,
+		Jobs:        jc,
 	}))
+}
+
+// work runs background jobs until ctx is cancelled, then lets running ones finish.
+func work(ctx context.Context, log *slog.Logger, pool *pgxpool.Pool, st *storage.Store) error {
+	jc, err := jobs.NewClient(log, pool, st)
+	if err != nil {
+		return err
+	}
+	if err := jc.Start(ctx); err != nil {
+		return fmt.Errorf("worker: start: %w", err)
+	}
+	log.Info("worker started")
+	<-ctx.Done()
+	log.Info("worker stopping")
+	stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return jc.Stop(stopCtx)
 }
 
 // serve runs the server until ctx is cancelled, then drains in-flight requests.
