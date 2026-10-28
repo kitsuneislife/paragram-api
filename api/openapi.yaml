@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info:
+  title: Paragram API
+  version: 0.1.0
+  description: |
+    Source of truth for the HTTP contract. Rules shared by every endpoint
+    (errors, pagination, auth, idempotency) are in docs/api-conventions.md.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      description: The process is running.
+      operationId: healthz
+      tags: [ops]
+      responses:
+        "200":
+          description: Alive
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+
+  /readyz:
+    get:
+      summary: Readiness
+      description: Postgres and Redis are reachable.
+      operationId: readyz
+      tags: [ops]
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+        "503":
+          $ref: "#/components/responses/Problem"
+
+components:
+  headers:
+    X-Request-Id:
+      description: Request ID, echoed from the client or generated. Appears in logs.
+      schema: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" }
+
+  responses:
+    Problem:
+      description: Error (RFC 9457)
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    Status:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, examples: [ok] }
+
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          examples: ["https://paragram.dev/errors/not-found"]
+        title: { type: string, examples: [Not Found] }
+        status: { type: integer, examples: [404] }
+        detail: { type: string }
