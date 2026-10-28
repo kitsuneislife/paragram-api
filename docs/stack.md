@@ -44,7 +44,7 @@ O Redis nunca é a fonte da verdade. Se for apagado, nada se perde além de cach
 
 Worker separado da API:
 
-- Imagens: `libvips` (via `govips`) gera tamanhos, converte para WebP/AVIF, remove EXIF, calcula blurhash.
+- Imagens: Go puro (stdlib + `golang.org/x/image`) gera tamanhos em JPEG. Reencodar remove o EXIF. Sem cgo, build igual em Windows e Linux. Trocar por `libvips` se WebP/AVIF ou velocidade virarem requisito.
 - Vídeos: `ffmpeg` transcodifica para HLS e gera thumbnail.
 
 ## Contrato e clientes

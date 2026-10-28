@@ -16,15 +16,16 @@ Construir na ordem abaixo. Cada fase entrega algo usável e testado antes de com
 
 ## Fase 1 — MVP
 
-- [ ] Cadastro, login, refresh token rotativo, logout
-- [ ] Perfil: ver, editar, avatar
-- [ ] Upload de imagem (presigned URL + worker libvips)
-- [ ] Criar, ver, excluir post (com carrossel)
-- [ ] Seguir e deixar de seguir (contas públicas)
-- [ ] Curtir e comentar
-- [ ] Feed home (fanout on read)
-- [ ] Rate limit em auth
-- [ ] Seed de dados fake
+- [x] Cadastro, login, refresh token rotativo, logout
+- [x] Perfil: ver, editar, avatar
+- [x] Upload de imagem (presigned URL + worker em Go puro, JPEG)
+- [x] Criar, ver, excluir post (com carrossel)
+- [x] Seguir e deixar de seguir (contas públicas)
+- [x] Curtir e comentar
+- [x] Feed home (fanout on read)
+- [x] Rate limit em auth
+- [x] ETag nas leituras
+- [x] Seed de dados fake
 
 ## Fase 2 — Social completo
 

@@ -54,9 +54,8 @@ Tudo que a API oferece, agrupado por domínio. A fase de cada item está em [roa
 
 ### Mídia gerada
 
-- Tamanhos: thumb, médio, full.
-- Formatos: WebP e AVIF.
-- Blurhash para placeholder enquanto carrega.
+- Tamanhos: thumb (320 px), médio (1080 px), full (2048 px) no lado maior, sem ampliar.
+- Formato: JPEG. WebP/AVIF e blurhash ficam para depois.
 - EXIF removido (evita vazar GPS).
 
 ## Reels / vídeo

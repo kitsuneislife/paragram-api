@@ -70,7 +70,7 @@ GET /v1/users/{id}/followers?limit=20&cursor=eyJ...
 ## Idempotência
 
 - POSTs que criam algo importante (post, comentário, mensagem, pagamento futuro) aceitam header `Idempotency-Key: <uuid>`.
-- Mesma chave + mesmo usuário em até 24 h retorna a resposta original sem criar duplicado.
+- Mesma chave + mesmo usuário retorna o recurso original sem criar duplicado. Hoje a chave não expira; cliente deve gerar uma nova por ação.
 - Ações naturalmente idempotentes (curtir, seguir, salvar) usam `PUT`/`DELETE` e não precisam da chave:
   - `PUT /v1/posts/{id}/like` curte (repetir não duplica).
   - `DELETE /v1/posts/{id}/like` descurte.
