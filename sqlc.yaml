@@ -1,5 +1,5 @@
 # Generates typed Go from SQL. Schema comes from the goose migrations.
-# shortcut: no queries exist yet, so `sqlc generate` fails until the first file lands in internal/db/queries (phase 1).
+# Run `sqlc generate` after changing a migration or a query, and commit the output.
 version: "2"
 sql:
   - engine: postgresql
@@ -11,3 +11,11 @@ sql:
         out: internal/db/store
         sql_package: pgx/v5
         emit_empty_slices: true
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: uuid
+            nullable: true
+            go_type: github.com/google/uuid.NullUUID
+          - db_type: timestamptz
+            go_type: time.Time
