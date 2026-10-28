@@ -1,4 +1,5 @@
-// Command paragram runs the API server.
+// Command paragram runs the API server (`paragram api`) or applies database
+// migrations (`paragram migrate`).
 package main
 
 import (
@@ -14,6 +15,7 @@ import (
 
 	"github.com/kitsuneislife/paragram/internal/api"
 	"github.com/kitsuneislife/paragram/internal/config"
+	"github.com/kitsuneislife/paragram/internal/db"
 )
 
 func main() {
@@ -24,7 +26,17 @@ func main() {
 	}
 }
 
+const usage = "usage: paragram <api|migrate>"
+
 func run(log *slog.Logger) error {
+	if len(os.Args) != 2 {
+		return errors.New(usage)
+	}
+	cmd := os.Args[1]
+	if cmd != "api" && cmd != "migrate" {
+		return errors.New(usage)
+	}
+
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
 		return err
@@ -33,7 +45,18 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	return serve(ctx, log, cfg.Addr, api.New(log, nil, cfg.CORSOrigins))
+	pool, err := db.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	if cmd == "migrate" {
+		return db.Migrate(ctx, log, pool)
+	}
+
+	checks := []api.Check{{Name: "postgres", Ping: pool.Ping}}
+	return serve(ctx, log, cfg.Addr, api.New(log, checks, cfg.CORSOrigins))
 }
 
 // serve runs the server until ctx is cancelled, then drains in-flight requests.
