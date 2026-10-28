@@ -230,6 +230,90 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
 
+  /v1/users/{id}/follow:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      summary: Follow
+      description: Idempotent; following twice changes nothing.
+      operationId: follow
+      tags: [follows]
+      security: [{ bearer: [] }]
+      responses:
+        "204": { description: Following }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem", description: "Following oneself (code: self)" }
+    delete:
+      summary: Unfollow
+      description: Idempotent.
+      operationId: unfollow
+      tags: [follows]
+      security: [{ bearer: [] }]
+      responses:
+        "204": { description: Not following }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+
+  /v1/users/{id}/followers:
+    get:
+      summary: Who follows a user, newest first
+      operationId: listFollowers
+      tags: [follows]
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+
+  /v1/users/{id}/following:
+    get:
+      summary: Who a user follows, newest first
+      operationId: listFollowing
+      tags: [follows]
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+
+  /v1/feed:
+    get:
+      summary: Home feed
+      description: Ready posts by the caller and everyone they follow, newest first.
+      operationId: feed
+      tags: [posts]
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PostPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+
   /v1/posts:
     post:
       summary: Create a post
@@ -445,7 +529,19 @@ components:
           oneOf:
             - $ref: "#/components/schemas/MediaURLs"
             - type: "null"
+        followed_by_me:
+          type: boolean
+          description: Whether the caller follows this user. Present on another user's profile and in follow lists.
         email: { type: string, format: email, description: Only present for the caller themself }
+
+    UserPage:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/User" }
+        next_cursor: { type: [string, "null"], description: Null at the end of the list. }
 
     Post:
       type: object

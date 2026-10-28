@@ -25,7 +25,8 @@ type userJSON struct {
 	FollowingCount int32      `json:"following_count"`
 	CreatedAt      time.Time  `json:"created_at"`
 	Avatar         *mediaURLs `json:"avatar"`
-	Email          string     `json:"email,omitempty"` // only shown to the user themself
+	FollowedByMe   *bool      `json:"followed_by_me,omitempty"` // set where the API looks it up
+	Email          string     `json:"email,omitempty"`          // only shown to the user themself
 }
 
 func (s *server) publicUser(u store.User) userJSON {
@@ -173,11 +174,19 @@ func (s *server) sendUser(w http.ResponseWriter, r *http.Request, get func(conte
 		writeInternal(w, r, s.Log, err)
 		return
 	}
-	if u.ID == caller(r).UserID {
+	me := caller(r).UserID
+	if u.ID == me {
 		writeJSON(w, http.StatusOK, s.privateUser(u))
 		return
 	}
-	writeJSON(w, http.StatusOK, s.publicUser(u))
+	following, err := s.q.IsFollowing(r.Context(), store.IsFollowingParams{FollowerID: me, FolloweeID: u.ID})
+	if err != nil {
+		writeInternal(w, r, s.Log, err)
+		return
+	}
+	j := s.publicUser(u)
+	j.FollowedByMe = &following
+	writeJSON(w, http.StatusOK, j)
 }
 
 // pathUUID parses a UUID path parameter. A malformed one cannot name any
