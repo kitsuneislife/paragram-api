@@ -5,15 +5,21 @@ import (
 	"testing"
 )
 
+// env returns a getenv with every required variable set, overridden by m.
 func env(m map[string]string) func(string) string {
-	return func(k string) string { return m[k] }
+	base := map[string]string{
+		"DATABASE_URL":        "postgres://x",
+		"REDIS_URL":           "redis://x",
+		"PARAGRAM_JWT_SECRET": strings.Repeat("s", minSecretLen),
+	}
+	for k, v := range m {
+		base[k] = v
+	}
+	return func(k string) string { return base[k] }
 }
 
 func TestLoadDefaultsAddr(t *testing.T) {
-	c, err := Load(env(map[string]string{
-		"DATABASE_URL": "postgres://x",
-		"REDIS_URL":    "redis://x",
-	}))
+	c, err := Load(env(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,8 +30,6 @@ func TestLoadDefaultsAddr(t *testing.T) {
 
 func TestLoadCORSOrigins(t *testing.T) {
 	c, err := Load(env(map[string]string{
-		"DATABASE_URL":          "postgres://x",
-		"REDIS_URL":             "redis://x",
 		"PARAGRAM_CORS_ORIGINS": " https://a.example, ,https://b.example ",
 	}))
 	if err != nil {
@@ -36,12 +40,18 @@ func TestLoadCORSOrigins(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsShortSecret(t *testing.T) {
+	if _, err := Load(env(map[string]string{"PARAGRAM_JWT_SECRET": "short"})); err == nil {
+		t.Fatal("want error")
+	}
+}
+
 func TestLoadReportsAllMissing(t *testing.T) {
-	_, err := Load(env(nil))
+	_, err := Load(func(string) string { return "" })
 	if err == nil {
 		t.Fatal("want error")
 	}
-	for _, k := range []string{"DATABASE_URL", "REDIS_URL"} {
+	for _, k := range []string{"DATABASE_URL", "REDIS_URL", "PARAGRAM_JWT_SECRET"} {
 		if !strings.Contains(err.Error(), k) {
 			t.Errorf("error %q does not mention %s", err, k)
 		}

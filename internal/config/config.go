@@ -11,8 +11,11 @@ type Config struct {
 	Addr        string // HTTP listen address
 	DatabaseURL string // Postgres connection string
 	RedisURL    string // Redis connection string
+	JWTSecret   []byte // signs access tokens
 	CORSOrigins []string
 }
+
+const minSecretLen = 32
 
 // Load reads settings through getenv (os.Getenv in production) and fails on
 // any missing required value, so a misconfigured process never starts.
@@ -21,6 +24,7 @@ func Load(getenv func(string) string) (Config, error) {
 		Addr:        getenv("PARAGRAM_ADDR"),
 		DatabaseURL: getenv("DATABASE_URL"),
 		RedisURL:    getenv("REDIS_URL"),
+		JWTSecret:   []byte(getenv("PARAGRAM_JWT_SECRET")),
 	}
 	if c.Addr == "" {
 		c.Addr = ":8080"
@@ -37,6 +41,9 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if c.RedisURL == "" {
 		errs = append(errs, errors.New("REDIS_URL is required"))
+	}
+	if len(c.JWTSecret) < minSecretLen {
+		errs = append(errs, fmt.Errorf("PARAGRAM_JWT_SECRET must be at least %d bytes", minSecretLen))
 	}
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
