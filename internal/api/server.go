@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/kitsuneislife/paragram-api/internal/db/store"
 )
@@ -25,6 +26,7 @@ type Deps struct {
 	Checks      []Check
 	CORSOrigins []string
 	Pool        *pgxpool.Pool
+	Redis       *redis.Client
 	JWTSecret   []byte
 }
 
@@ -46,9 +48,11 @@ func New(d Deps) http.Handler {
 	})
 	mux.HandleFunc("GET /readyz", readyz(d.Log, d.Checks))
 
-	mux.HandleFunc("POST /v1/auth/register", s.register)
-	mux.HandleFunc("POST /v1/auth/login", s.login)
-	mux.HandleFunc("POST /v1/auth/refresh", s.refresh)
+	// One shared budget per IP across these slows password guessing and signup spam.
+	limitAuth := func(h http.HandlerFunc) http.HandlerFunc { return s.rateLimit("auth", 20, time.Minute, h) }
+	mux.HandleFunc("POST /v1/auth/register", limitAuth(s.register))
+	mux.HandleFunc("POST /v1/auth/login", limitAuth(s.login))
+	mux.HandleFunc("POST /v1/auth/refresh", limitAuth(s.refresh))
 	mux.HandleFunc("POST /v1/auth/logout", s.authed(s.logout))
 
 	mux.HandleFunc("GET /v1/me", s.authed(s.getMe))

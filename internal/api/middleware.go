@@ -112,7 +112,7 @@ func withCORS(origins []string, next http.Handler) http.Handler {
 		}
 		h := w.Header()
 		h.Set("Access-Control-Allow-Origin", origin)
-		h.Set("Access-Control-Expose-Headers", "X-Request-Id, ETag, Retry-After")
+		h.Set("Access-Control-Expose-Headers", "X-Request-Id, ETag, Retry-After, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset")
 		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE")
 			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key, If-None-Match, X-Request-Id")

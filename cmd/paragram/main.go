@@ -77,6 +77,7 @@ func run(log *slog.Logger) error {
 		Checks:      checks,
 		CORSOrigins: cfg.CORSOrigins,
 		Pool:        pool,
+		Redis:       rdb,
 		JWTSecret:   cfg.JWTSecret,
 	}))
 }

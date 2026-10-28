@@ -9,7 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/kitsuneislife/paragram-api/internal/db/dbtest"
 )
@@ -24,9 +26,11 @@ type testAPI struct {
 func newTestAPI(t *testing.T) *testAPI {
 	t.Helper()
 	pool := dbtest.New(t)
+	rdb := redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()})
 	srv := httptest.NewServer(New(Deps{
 		Log:       quiet,
 		Pool:      pool,
+		Redis:     rdb,
 		JWTSecret: []byte(strings.Repeat("k", 32)),
 	}))
 	t.Cleanup(srv.Close)

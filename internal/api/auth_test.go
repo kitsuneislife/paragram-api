@@ -89,6 +89,20 @@ func TestLogout(t *testing.T) {
 	a.do(other.AccessToken, "GET", "/v1/me", nil, http.StatusOK, nil)
 }
 
+func TestAuthRateLimit(t *testing.T) {
+	a := newTestAPI(t)
+	body := map[string]string{"login": "nobody", "password": "password123"}
+	for range 20 {
+		a.do("", "POST", "/v1/auth/login", body, http.StatusUnauthorized, nil)
+	}
+	res := a.do("", "POST", "/v1/auth/login", body, http.StatusTooManyRequests, nil)
+	if res.Header.Get("Retry-After") == "" || res.Header.Get("RateLimit-Remaining") != "0" {
+		t.Errorf("headers = %v", res.Header)
+	}
+	// The budget is shared across auth endpoints.
+	a.do("", "POST", "/v1/auth/refresh", map[string]string{"refresh_token": "x"}, http.StatusTooManyRequests, nil)
+}
+
 func TestAuthRequired(t *testing.T) {
 	a := newTestAPI(t)
 	a.do("", "GET", "/v1/me", nil, http.StatusUnauthorized, nil)
