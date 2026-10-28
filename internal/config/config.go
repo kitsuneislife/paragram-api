@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/kitsuneislife/paragram-api/internal/storage"
 )
 
 type Config struct {
@@ -13,6 +15,7 @@ type Config struct {
 	RedisURL    string // Redis connection string
 	JWTSecret   []byte // signs access tokens
 	CORSOrigins []string
+	S3          storage.Config
 }
 
 const minSecretLen = 32
@@ -25,6 +28,13 @@ func Load(getenv func(string) string) (Config, error) {
 		DatabaseURL: getenv("DATABASE_URL"),
 		RedisURL:    getenv("REDIS_URL"),
 		JWTSecret:   []byte(getenv("PARAGRAM_JWT_SECRET")),
+		S3: storage.Config{
+			Endpoint:  getenv("PARAGRAM_S3_ENDPOINT"),
+			AccessKey: getenv("PARAGRAM_S3_ACCESS_KEY"),
+			SecretKey: getenv("PARAGRAM_S3_SECRET_KEY"),
+			Bucket:    getenv("PARAGRAM_S3_BUCKET"),
+			PublicURL: getenv("PARAGRAM_S3_PUBLIC_URL"),
+		},
 	}
 	if c.Addr == "" {
 		c.Addr = ":8080"
@@ -44,6 +54,17 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if len(c.JWTSecret) < minSecretLen {
 		errs = append(errs, fmt.Errorf("PARAGRAM_JWT_SECRET must be at least %d bytes", minSecretLen))
+	}
+	for k, v := range map[string]string{
+		"PARAGRAM_S3_ENDPOINT":   c.S3.Endpoint,
+		"PARAGRAM_S3_ACCESS_KEY": c.S3.AccessKey,
+		"PARAGRAM_S3_SECRET_KEY": c.S3.SecretKey,
+		"PARAGRAM_S3_BUCKET":     c.S3.Bucket,
+		"PARAGRAM_S3_PUBLIC_URL": c.S3.PublicURL,
+	} {
+		if v == "" {
+			errs = append(errs, errors.New(k+" is required"))
+		}
 	}
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)

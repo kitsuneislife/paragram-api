@@ -16,6 +16,12 @@ docker compose up -d
 cp .env.example .env
 ```
 
+Criar o bucket de mídia com leitura pública (uma vez):
+
+```bash
+docker compose exec minio sh -c "mc alias set local http://localhost:9000 paragram paragram-dev-secret && mc mb -p local/media && mc anonymous set download local/media"
+```
+
 Carregar o `.env` no shell:
 
 ```bash
@@ -43,6 +49,14 @@ go test ./...
 
 Testes que precisam de Postgres usam testcontainers e são pulados quando o Docker não está rodando. No CI eles sempre rodam.
 
+Sem Docker, aponte para um Postgres próprio (cada teste cria e apaga seu banco):
+
+```bash
+PARAGRAM_TEST_DATABASE_URL="postgres://postgres@localhost:5432/postgres?sslmode=disable" go test ./...
+```
+
+Redis e S3 rodam em memória nos testes (miniredis, gofakes3).
+
 ## Estrutura
 
 ```
@@ -64,6 +78,10 @@ compose.yaml          dependências locais
 | `DATABASE_URL` | sim | | Connection string do Postgres |
 | `REDIS_URL` | sim | | Connection string do Redis |
 | `PARAGRAM_JWT_SECRET` | sim | | Chave HMAC dos access tokens, mínimo 32 bytes |
+| `PARAGRAM_S3_ENDPOINT` | sim | | URL do storage S3-compatível (MinIO, R2) |
+| `PARAGRAM_S3_ACCESS_KEY`, `PARAGRAM_S3_SECRET_KEY` | sim | | Credenciais do storage |
+| `PARAGRAM_S3_BUCKET` | sim | | Bucket de mídia |
+| `PARAGRAM_S3_PUBLIC_URL` | sim | | URL base pública dos objetos do bucket |
 | `PARAGRAM_ADDR` | não | `:8080` | Endereço HTTP |
 | `PARAGRAM_CORS_ORIGINS` | não | vazio | Origens de navegador permitidas, separadas por vírgula |
 
