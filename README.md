@@ -42,6 +42,12 @@ go run ./cmd/paragram worker   # outro terminal: processa mídia
 
 Checar: `curl localhost:8080/readyz`.
 
+Dados fake (com api e worker rodando): usuários `seed1`… com senha `seed-password`, follows, posts, curtidas e comentários.
+
+```bash
+go run ./cmd/seed
+```
+
 ## Testes
 
 ```bash
@@ -62,6 +68,7 @@ Redis e S3 rodam em memória nos testes (miniredis, gofakes3).
 
 ```
 cmd/paragram/         entrypoint: subcomandos api, worker e migrate
+cmd/seed/             dados fake pela API pública
 internal/api/         HTTP: rotas, middleware, formato de resposta e erro
 internal/auth/        hash de senha e tokens
 internal/jobs/        jobs em background (River): processamento de mídia
