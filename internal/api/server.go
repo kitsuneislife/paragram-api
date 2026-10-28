@@ -56,6 +56,9 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /v1/auth/logout", s.authed(s.logout))
 
 	mux.HandleFunc("GET /v1/me", s.authed(s.getMe))
+	mux.HandleFunc("PATCH /v1/me", s.authed(s.updateMe))
+	mux.HandleFunc("GET /v1/users/{id}", s.authed(s.getUser))
+	mux.HandleFunc("GET /v1/users/by-username/{username}", s.authed(s.getUserByUsername))
 
 	// shortcut: catch-all also answers wrong-method requests with 404 instead of 405, revisit if clients need 405.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

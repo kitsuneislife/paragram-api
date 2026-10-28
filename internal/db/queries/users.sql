@@ -9,3 +9,17 @@ SELECT * FROM users WHERE username = lower(@login::text) OR email = lower(@login
 
 -- name: GetUser :one
 SELECT * FROM users WHERE id = $1;
+
+-- name: GetUserByUsername :one
+SELECT * FROM users WHERE username = lower(@username::text);
+
+-- name: UpdateUser :one
+-- NULL leaves a field unchanged.
+UPDATE users SET
+    username     = coalesce(sqlc.narg(username), username),
+    display_name = coalesce(sqlc.narg(display_name), display_name),
+    bio          = coalesce(sqlc.narg(bio), bio),
+    website      = coalesce(sqlc.narg(website), website),
+    updated_at   = now()
+WHERE id = @id
+RETURNING *;

@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/mail"
+	"net/url"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -41,6 +42,11 @@ func normalizeUsername(s string) string { return strings.ToLower(strings.TrimSpa
 func validEmail(s string) bool {
 	a, err := mail.ParseAddress(s)
 	return err == nil && a.Address == s && len(s) <= maxEmail
+}
+
+func validWebsite(s string) bool {
+	u, err := url.Parse(s)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
 // uniqueViolation returns the constraint name when err is a unique violation.

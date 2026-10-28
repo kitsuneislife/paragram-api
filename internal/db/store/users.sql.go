@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -82,6 +83,76 @@ SELECT id, username, email, password_hash, display_name, bio, website, posts_cou
 // login is a username or an email; both are stored lowercase.
 func (q *Queries) GetUserByLogin(ctx context.Context, login string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByLogin, login)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PasswordHash,
+		&i.DisplayName,
+		&i.Bio,
+		&i.Website,
+		&i.PostsCount,
+		&i.FollowersCount,
+		&i.FollowingCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at FROM users WHERE username = lower($1::text)
+`
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PasswordHash,
+		&i.DisplayName,
+		&i.Bio,
+		&i.Website,
+		&i.PostsCount,
+		&i.FollowersCount,
+		&i.FollowingCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUser = `-- name: UpdateUser :one
+UPDATE users SET
+    username     = coalesce($1, username),
+    display_name = coalesce($2, display_name),
+    bio          = coalesce($3, bio),
+    website      = coalesce($4, website),
+    updated_at   = now()
+WHERE id = $5
+RETURNING id, username, email, password_hash, display_name, bio, website, posts_count, followers_count, following_count, created_at, updated_at
+`
+
+type UpdateUserParams struct {
+	Username    pgtype.Text
+	DisplayName pgtype.Text
+	Bio         pgtype.Text
+	Website     pgtype.Text
+	ID          uuid.UUID
+}
+
+// NULL leaves a field unchanged.
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.Username,
+		arg.DisplayName,
+		arg.Bio,
+		arg.Website,
+		arg.ID,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
