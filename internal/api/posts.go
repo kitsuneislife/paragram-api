@@ -22,12 +22,13 @@ type postJSON struct {
 	Caption       string    `json:"caption"`
 	LikesCount    int32     `json:"likes_count"`
 	CommentsCount int32     `json:"comments_count"`
+	LikedByMe     bool      `json:"liked_by_me"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
 // loadPosts returns the posts named by ids, in that order, skipping missing ones.
-func (s *server) loadPosts(ctx context.Context, ids []uuid.UUID) ([]postJSON, error) {
-	rows, err := s.q.GetPosts(ctx, ids)
+func (s *server) loadPosts(ctx context.Context, viewer uuid.UUID, ids []uuid.UUID) ([]postJSON, error) {
+	rows, err := s.q.GetPosts(ctx, store.GetPostsParams{Viewer: viewer, Ids: ids})
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +50,7 @@ func (s *server) loadPosts(ctx context.Context, ids []uuid.UUID) ([]postJSON, er
 			Caption:       r.Post.Caption,
 			LikesCount:    r.Post.LikesCount,
 			CommentsCount: r.Post.CommentsCount,
+			LikedByMe:     r.LikedByMe,
 			CreatedAt:     r.Post.CreatedAt.UTC(),
 		}
 	}
@@ -144,7 +146,7 @@ func (s *server) getPost(w http.ResponseWriter, r *http.Request) {
 
 // sendPost answers with the post, or 404 when the caller may not see it.
 func (s *server) sendPost(w http.ResponseWriter, r *http.Request, id uuid.UUID, status int) {
-	posts, err := s.loadPosts(r.Context(), []uuid.UUID{id})
+	posts, err := s.loadPosts(r.Context(), caller(r).UserID, []uuid.UUID{id})
 	if err != nil {
 		writeInternal(w, r, s.Log, err)
 		return
@@ -216,7 +218,7 @@ func (s *server) listUserPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) sendPostPage(w http.ResponseWriter, r *http.Request, ids []uuid.UUID, next *string) {
-	posts, err := s.loadPosts(r.Context(), ids)
+	posts, err := s.loadPosts(r.Context(), caller(r).UserID, ids)
 	if err != nil {
 		writeInternal(w, r, s.Log, err)
 		return

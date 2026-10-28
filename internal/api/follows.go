@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/kitsuneislife/paragram-api/internal/db/store"
 )
@@ -49,7 +48,7 @@ func (s *server) setFollow(w http.ResponseWriter, r *http.Request, on bool) {
 		}
 		return q.AddFollowCounts(ctx, store.AddFollowCountsParams{FollowerID: me, FolloweeID: target, Delta: delta})
 	})
-	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
+	if isFKViolation(err) {
 		writeProblem(w, http.StatusNotFound, "not-found", "user not found")
 		return
 	}

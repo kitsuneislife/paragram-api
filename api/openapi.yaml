@@ -381,6 +381,91 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
 
+  /v1/posts/{id}/like:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      summary: Like a post
+      description: Idempotent; liking twice changes nothing.
+      operationId: like
+      tags: [likes]
+      security: [{ bearer: [] }]
+      responses:
+        "204": { description: Liked }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem", description: Unknown or not ready }
+    delete:
+      summary: Unlike a post
+      description: Idempotent.
+      operationId: unlike
+      tags: [likes]
+      security: [{ bearer: [] }]
+      responses:
+        "204": { description: Not liked }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem", description: Unknown or not ready }
+
+  /v1/posts/{id}/comments:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Comment on a post
+      operationId: createComment
+      tags: [comments]
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Idempotency-Key"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 2200, description: Trimmed. }
+      responses:
+        "201":
+          description: The comment (or the original one, when the Idempotency-Key was used before)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem", description: Unknown or not ready }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+    get:
+      summary: A post's comments, oldest first
+      operationId: listComments
+      tags: [comments]
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentPage" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem", description: Unknown or not ready }
+        "422": { $ref: "#/components/responses/Problem" }
+
+  /v1/comments/{id}:
+    delete:
+      summary: Delete a comment
+      description: Allowed to the comment's author and the post's author.
+      operationId: deleteComment
+      tags: [comments]
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem", description: Unknown or not the caller's to delete }
+
   /v1/media:
     post:
       summary: Start an upload
@@ -550,7 +635,7 @@ components:
 
     Post:
       type: object
-      required: [id, author, media, ready, caption, likes_count, comments_count, created_at]
+      required: [id, author, media, ready, caption, likes_count, comments_count, liked_by_me, created_at]
       properties:
         id: { type: string, format: uuid }
         author: { $ref: "#/components/schemas/User" }
@@ -561,6 +646,7 @@ components:
         caption: { type: string }
         likes_count: { type: integer }
         comments_count: { type: integer }
+        liked_by_me: { type: boolean }
         created_at: { type: string, format: date-time }
 
     PostPage:
@@ -570,6 +656,25 @@ components:
         data:
           type: array
           items: { $ref: "#/components/schemas/Post" }
+        next_cursor: { type: [string, "null"], description: Null at the end of the list. }
+
+    Comment:
+      type: object
+      required: [id, post_id, author, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        post_id: { type: string, format: uuid }
+        author: { $ref: "#/components/schemas/User" }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+
+    CommentPage:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
         next_cursor: { type: [string, "null"], description: Null at the end of the list. }
 
     MediaURLs:

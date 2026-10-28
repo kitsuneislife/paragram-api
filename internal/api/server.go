@@ -80,6 +80,12 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /v1/users/{id}/following", s.authed(s.listFollowing))
 	mux.HandleFunc("GET /v1/feed", s.authed(s.feed))
 
+	mux.HandleFunc("PUT /v1/posts/{id}/like", s.authed(s.like))
+	mux.HandleFunc("DELETE /v1/posts/{id}/like", s.authed(s.unlike))
+	mux.HandleFunc("POST /v1/posts/{id}/comments", s.authed(s.rateLimit("comments", 60, time.Minute, s.createComment)))
+	mux.HandleFunc("GET /v1/posts/{id}/comments", s.authed(s.listComments))
+	mux.HandleFunc("DELETE /v1/comments/{id}", s.authed(s.deleteComment))
+
 	// shortcut: catch-all also answers wrong-method requests with 404 instead of 405, revisit if clients need 405.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusNotFound, "not-found", "")

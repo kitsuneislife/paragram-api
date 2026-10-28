@@ -11,10 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Comment struct {
+	ID             uuid.UUID
+	PostID         uuid.UUID
+	AuthorID       uuid.UUID
+	Body           string
+	IdempotencyKey uuid.NullUUID
+	CreatedAt      time.Time
+}
+
 type Follow struct {
 	FollowerID uuid.UUID
 	FolloweeID uuid.UUID
 	CreatedAt  time.Time
+}
+
+type Like struct {
+	UserID    uuid.UUID
+	PostID    uuid.UUID
+	CreatedAt time.Time
 }
 
 type Media struct {

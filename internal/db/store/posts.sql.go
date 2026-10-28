@@ -85,20 +85,27 @@ func (q *Queries) DeletePost(ctx context.Context, arg DeletePostParams) (uuid.UU
 }
 
 const getPosts = `-- name: GetPosts :many
-SELECT p.id, p.author_id, p.caption, p.likes_count, p.comments_count, p.idempotency_key, p.created_at, p.updated_at, u.id, u.username, u.email, u.password_hash, u.display_name, u.bio, u.website, u.posts_count, u.followers_count, u.following_count, u.created_at, u.updated_at, u.avatar_media_id, post_ready(p.id)::bool AS ready
+SELECT p.id, p.author_id, p.caption, p.likes_count, p.comments_count, p.idempotency_key, p.created_at, p.updated_at, u.id, u.username, u.email, u.password_hash, u.display_name, u.bio, u.website, u.posts_count, u.followers_count, u.following_count, u.created_at, u.updated_at, u.avatar_media_id, post_ready(p.id)::bool AS ready,
+    EXISTS (SELECT 1 FROM likes l WHERE l.user_id = $1 AND l.post_id = p.id)::bool AS liked_by_me
 FROM posts p JOIN users u ON u.id = p.author_id
-WHERE p.id = ANY($1::uuid[])
+WHERE p.id = ANY($2::uuid[])
 `
 
+type GetPostsParams struct {
+	Viewer uuid.UUID
+	Ids    []uuid.UUID
+}
+
 type GetPostsRow struct {
-	Post  Post
-	User  User
-	Ready bool
+	Post      Post
+	User      User
+	Ready     bool
+	LikedByMe bool
 }
 
 // Full rows for ids, in no particular order.
-func (q *Queries) GetPosts(ctx context.Context, ids []uuid.UUID) ([]GetPostsRow, error) {
-	rows, err := q.db.Query(ctx, getPosts, ids)
+func (q *Queries) GetPosts(ctx context.Context, arg GetPostsParams) ([]GetPostsRow, error) {
+	rows, err := q.db.Query(ctx, getPosts, arg.Viewer, arg.Ids)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +136,7 @@ func (q *Queries) GetPosts(ctx context.Context, ids []uuid.UUID) ([]GetPostsRow,
 			&i.User.UpdatedAt,
 			&i.User.AvatarMediaID,
 			&i.Ready,
+			&i.LikedByMe,
 		); err != nil {
 			return nil, err
 		}

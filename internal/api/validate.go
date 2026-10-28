@@ -23,6 +23,7 @@ const (
 	maxPassword    = 128
 	maxCaption     = 2200
 	maxPostMedia   = 10
+	maxComment     = 2200
 )
 
 var usernameRe = regexp.MustCompile(`^[a-z0-9._]{1,30}$`)
@@ -64,6 +65,12 @@ func parseIDs(ss []string) ([]uuid.UUID, bool) {
 		ids[i], seen[id] = id, true
 	}
 	return ids, true
+}
+
+// isFKViolation reports whether a referenced row was missing.
+func isFKViolation(err error) bool {
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	return ok && pgErr.Code == "23503"
 }
 
 // uniqueViolation returns the constraint name when err is a unique violation.

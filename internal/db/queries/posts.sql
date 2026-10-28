@@ -20,7 +20,8 @@ DELETE FROM posts WHERE id = $1 AND author_id = $2 RETURNING id;
 
 -- name: GetPosts :many
 -- Full rows for ids, in no particular order.
-SELECT sqlc.embed(p), sqlc.embed(u), post_ready(p.id)::bool AS ready
+SELECT sqlc.embed(p), sqlc.embed(u), post_ready(p.id)::bool AS ready,
+    EXISTS (SELECT 1 FROM likes l WHERE l.user_id = @viewer AND l.post_id = p.id)::bool AS liked_by_me
 FROM posts p JOIN users u ON u.id = p.author_id
 WHERE p.id = ANY(@ids::uuid[]);
 
