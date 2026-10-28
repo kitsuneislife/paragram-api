@@ -4,15 +4,15 @@ Construir na ordem abaixo. Cada fase entrega algo usável e testado antes de com
 
 ## Fase 0 — Fundação
 
-- [ ] Repositório Go, estrutura de pastas, Makefile
-- [ ] Docker Compose: Postgres, Redis, MinIO
-- [ ] Migrations (goose) + sqlc configurados
-- [ ] Esqueleto do OpenAPI
-- [ ] Middleware: request ID, logs, recuperação de panic, timeouts, CORS
-- [ ] Formato de erro RFC 9457
-- [ ] `/healthz` e `/readyz`
-- [ ] Testes de integração com testcontainers rodando
-- [ ] CI: build, testes, lint
+- [x] Repositório Go e estrutura de pastas (sem Makefile: comandos `go` puros no README, funcionam igual em Windows e Linux)
+- [x] Docker Compose: Postgres, Redis, MinIO
+- [x] Migrations (goose) + sqlc configurados (sqlc gera a partir da primeira query, na fase 1)
+- [x] Esqueleto do OpenAPI
+- [x] Middleware: request ID, logs, recuperação de panic, timeouts, CORS
+- [x] Formato de erro RFC 9457
+- [x] `/healthz` e `/readyz`
+- [x] Testes de integração com testcontainers (pulados sem Docker, rodam no CI)
+- [x] CI: gofmt, vet, build, testes
 
 ## Fase 1 — MVP
 
