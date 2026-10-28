@@ -1,4 +1,4 @@
-module github.com/kitsuneislife/paragram
+module github.com/kitsuneislife/paragram-api
 
 go 1.27.0
 

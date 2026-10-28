@@ -15,9 +15,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/kitsuneislife/paragram/internal/api"
-	"github.com/kitsuneislife/paragram/internal/config"
-	"github.com/kitsuneislife/paragram/internal/db"
+	"github.com/kitsuneislife/paragram-api/internal/api"
+	"github.com/kitsuneislife/paragram-api/internal/config"
+	"github.com/kitsuneislife/paragram-api/internal/db"
 )
 
 func main() {
