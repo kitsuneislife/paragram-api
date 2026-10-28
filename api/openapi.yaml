@@ -16,6 +16,7 @@ paths:
       description: The process is running.
       operationId: healthz
       tags: [ops]
+      security: []
       responses:
         "200":
           description: Alive
@@ -29,6 +30,7 @@ paths:
       description: Postgres and Redis are reachable.
       operationId: readyz
       tags: [ops]
+      security: []
       responses:
         "200":
           description: Ready
@@ -44,6 +46,7 @@ paths:
       description: Starts a session for the new user. Rate limited per IP.
       operationId: register
       tags: [auth]
+      security: []
       requestBody:
         required: true
         content:
@@ -72,6 +75,7 @@ paths:
       description: Starts a new session (one per device). Rate limited per IP.
       operationId: login
       tags: [auth]
+      security: []
       requestBody:
         required: true
         content:
@@ -101,6 +105,7 @@ paths:
         Rate limited per IP.
       operationId: refresh
       tags: [auth]
+      security: []
       requestBody:
         required: true
         content:
@@ -585,6 +590,6 @@ components:
           type: string
           enum: [pending, processing, ready, failed]
           description: pending until attached, then processing; failed if the file is not a supported image.
-        width: { type: integer, description: Of the full variant, once ready }
+        width: { type: integer, description: "Of the full variant, once ready" }
         height: { type: integer }
         urls: { $ref: "#/components/schemas/MediaURLs" }
